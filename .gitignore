@@ -1,3 +1,8 @@
+# Compiled Resources
+boot-loader
+KERNEL.SYS
+
+
 # Prerequisites
 *.d
 
