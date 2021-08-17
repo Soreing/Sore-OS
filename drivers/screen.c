@@ -31,12 +31,25 @@ void clearScreen()
     }
 }
 
+// Puts the caret on the next line on the screen
+void nextLine()
+{
+    col = 0;
+    row = row+1;
+    updateCursor();
+}
+
 // Puts a character on the screen
 void putChar(char ch)
 {
     unsigned char *vidmem = (unsigned char*) VIDEO_ADDRESS;
     int offset = row*160 + col;
 
+    if(ch == '\n')
+    {   nextLine();
+        return;
+    }
+    
 	vidmem[offset]   = ch;
 	vidmem[offset+1] = WHITE_ON_BLACK;
 
