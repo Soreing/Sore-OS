@@ -1,4 +1,5 @@
 #include <drivers/keyboard.h>
+#include <drivers/screen.h>
 
 char lshift;     // Pressed state of the left shift key
 char rshift;     // Pressed state of the right shift key
@@ -51,7 +52,7 @@ void sysKey(char code, char state)
 			break;
 		case KEY_BACKSPACE:
 			if(state == KEY_DOWN)
-			{	//delChar();
+			{	delChar();
 			}
 			break;
 	}

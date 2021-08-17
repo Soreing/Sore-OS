@@ -1,5 +1,6 @@
 #include <kernel/asm.h>
 #include <drivers/keyboard.h>
+#include <drivers/screen.h>
 
 #define PIC1_COMMAND	0x20
 #define PIC1_DATA		0x21
@@ -236,7 +237,7 @@ void irq1_handler(void)
 		{	sysKey(keyCode & 0x7F, keyCode & 0x80);
 		}
 		else if(keyCode > 0)
-		{	//putChar(character);
+		{	putChar(character);
 		}
 	}	
 }
@@ -375,5 +376,6 @@ bool readSector(short sectors, long LBA, char* buffer)
 
 void main()
 {
-
+	idt_init();
+	clearScreen();
 }
