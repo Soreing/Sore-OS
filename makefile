@@ -14,7 +14,7 @@ KERNEL.SYS : kernel/kernel-entry.o kernel/irq.o ${C_OBJECTS}
 
 # Generic rule for building C source files into object files
 %.o : %.c ${HEADERS}
-	i386-elf-gcc -c $< -o $@
+	i386-elf-gcc -c $< -o $@ -I ./
 
 # Assemble kernel-entry
 %.o : %.s

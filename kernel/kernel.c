@@ -1,3 +1,6 @@
+#include <kernel/asm.h>
+#include <drivers/keyboard.h>
+
 #define PIC1_COMMAND	0x20
 #define PIC1_DATA		0x21
 #define PIC2_COMMAND	0xA0
@@ -20,9 +23,6 @@
 #define KEYBOARD_STATUS_PORT 0x64
 #define KEYBOARD_DATA_PORT 0x60
 
-#define VIDEO_ADDRESS 0xB8000
-#define WHITE_ON_BLACK 0x0F
-
 #define false 0
 #define true  1
 
@@ -37,43 +37,6 @@ struct IDT_entry{
 };
  
 struct IDT_entry IDT[256];
-
-unsigned char inb(unsigned short port) 
-{
-	// A handy C wrapper function that reads a byte from the specified port
-	//  "=a" (result) means: put AL register in variable RESULT when finished
-	//  "d" (port) means: load EDX with port
-	unsigned char result;
-	__asm__("in %%dx, %%al" : "=a" (result) : "d" (port));
-	return result;
-}
-	
-void outb(unsigned short port , unsigned char data) 
-{
-	// "a" (data) means: load EAX with data
-	// "d" (port) means: load EDX with port
-	__asm__("out %%al, %%dx" : :"a" (data), "d" (port));
-}
-
-unsigned short inw(unsigned short port) 
-{
-	unsigned short result;
-	__asm__("in %%dx, %%ax" : "=a" (result) : "d" (port));
-	return result;
-}
-	
-void outw(unsigned short port , unsigned short data) 
-{
-	__asm__("out %%ax, %%dx" : :"a" (data), "d" (port));
-}
-
-void print_char(char ch)
-{	
-	unsigned char *vidmem = (unsigned char*) VIDEO_ADDRESS;
-
-	vidmem[0] = ch;
-	vidmem[1] = WHITE_ON_BLACK;
-}
 
 void idt_init(void) 
 {
@@ -251,20 +214,30 @@ void irq0_handler(void)
 {	outb(PIC1_COMMAND, EOI);
 }
  
+ // Keyboard irq handler
 void irq1_handler(void) 
 {	
 	unsigned char status;
-	char keycode;
+
+	char keyCode;
+	char character;
 
 	outb(PIC1_COMMAND, EOI);
-
 	status = inb(KEYBOARD_STATUS_PORT);
+
 	/* Lowest bit of status will be set if buffer is not empty */
-	if (status & 0x01) {
-		keycode = inb(KEYBOARD_DATA_PORT);
-		if(keycode < 0)
-			return;
-		print_char(keycode);
+	if (status & 0x01) 
+	{	// Retrieve the key code from the keyboard data port
+		keyCode = inb(KEYBOARD_DATA_PORT);
+
+		// Handle the key press as a system key or a printable character
+		character = keyChar(keyCode & 0x7F);
+		if(character == 0)
+		{	sysKey(keyCode & 0x7F, keyCode & 0x80);
+		}
+		else if(keyCode > 0)
+		{	//putChar(character);
+		}
 	}	
 }
  
@@ -331,13 +304,6 @@ void irq15_handler(void)
 {	outb(PIC2_COMMAND, EOI);
 	outb(PIC1_COMMAND, EOI);       
 }
-
-//void main()
-//{
-//	__asm__("mov $0x0f, %ah");
-//	__asm__("mov $'A', %al");
-//	__asm__("movw %ax, 0xb8000");
-//}
 
 bool identify()
 {
@@ -409,17 +375,5 @@ bool readSector(short sectors, long LBA, char* buffer)
 
 void main()
 {
-	char buffer[512];
 
-	idt_init();
-
-	if (identify())
-	{
-		if(readSector(1, 0, buffer))
-			print_char(buffer[2]);
-		else
-			print_char('F');
-	}
-	else
-		print_char('E');
 }
