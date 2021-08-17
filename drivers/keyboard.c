@@ -1,6 +1,10 @@
+#include <kernel/asm.h>
 #include <drivers/keyboard.h>
 #include <drivers/screen.h>
 #include <drivers/iobuffers.h>
+
+#define KEYBOARD_STATUS_PORT 0x64
+#define KEYBOARD_DATA_PORT 0x60
 
 char lshift;     // Pressed state of the left shift key
 char rshift;     // Pressed state of the right shift key
@@ -31,6 +35,32 @@ const char shiftCharset[] = {
 	 0 , '7', '8', '9', '-', '4', '5', '6', '+', '1',
 	'2', '3', '0', '.',  0 ,  0 ,  0 ,  0 ,  0 ,  0
 };
+
+void keyboardHandler(void) 
+{	
+	unsigned char status;
+	unsigned char keyCode;
+	unsigned char character;
+
+	status = inb(KEYBOARD_STATUS_PORT);
+
+	/* Lowest bit of status will be set if buffer is not empty */
+	if (status & 0x01) 
+	{	// Retrieve the key code from the keyboard data port
+		keyCode = inb(KEYBOARD_DATA_PORT);
+
+		// Handle the key press as a system key or a printable character
+		character = keyChar(keyCode & 0x7F);
+		if(character == 0)
+		{	sysKey(keyCode & 0x7F, keyCode & 0x80);
+		}
+		else if((keyCode & 0x80) == 0)
+		{	putChar(character);
+			tempBuffer[tempIndex] = character;
+			tempIndex++;
+		}
+	}	
+}
 
 // Returns a keyboard character based on the key code
 // Takes into consideration the shift key and caps lock

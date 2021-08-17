@@ -13,6 +13,9 @@
 #define KEY_LALT 0x38
 #define KEY_CAPSLOCK 0x3A
 
+// IRQ_1 Keyboard Handler
+void keyboardHandler();
+
 // Returns a keyboard character based on the key code
 // Takes into consideration the shift key and caps lock
 char keyChar(char code);
