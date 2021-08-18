@@ -1,6 +1,6 @@
 # Automatically generate list of source files
-C_SOURCES = $(wildcard kernel/*.c drivers/*.c)
-HEADERS = $(wildcard kernel/*.h drivers/*.h)
+C_SOURCES = $(wildcard kernel/*.c drivers/*.c libc/*/*.c)
+HEADERS = $(wildcard kernel/*.h drivers/*.h libc/include/*.h)
 C_OBJECTS = $(C_SOURCES:.c=.o)
 
 OBJ = @{C_SOURCES:.c=.o}
@@ -14,7 +14,7 @@ KERNEL.SYS : kernel/kernel-entry.o kernel/irq.o ${C_OBJECTS}
 
 # Generic rule for building C source files into object files
 %.o : %.c ${HEADERS}
-	i386-elf-gcc -c $< -o $@ -I ./
+	i386-elf-gcc -c $< -o $@ -I ./libc/include -I ./
 
 # Assemble kernel-entry
 %.o : %.s
@@ -31,5 +31,5 @@ boot/boot-loader.o : boot/boot.s
 # Clear all the intermediate files
 clean:
 	rm -fr *.bin *.dis *.o
-	rm -fr kernel/*.o boot/*.o drivers/*.o
+	rm -fr kernel/*.o boot/*.o drivers/*.o libc/*/*.o
 	

@@ -65,10 +65,30 @@ void getStr(char* buffer, int size)
     trimInput(idx);
 }
 
-// Puts a string to the screen unbuffered
-void putStr(char* buffer)
+// Prints a string to the screen unbuffered
+void printStr(char* buffer)
 {
     for(int i=0; buffer[i] != 0; i++)
     {   putChar(buffer[i]);
+    }
+}
+
+// Prints a character to the screen unbuffered
+void printChar(char ch)
+{
+    putChar(ch);
+}
+
+// Prints a stream of bytes to the screen as hexadecimal
+void printHex(unsigned char* start, int bytes)
+{
+    static char const hex[16] ={
+        '0','1','2','3','4','5','6','7',
+        '8','9','A','B','C','D','E','F',
+    };
+
+    for(int i=0; i<bytes ; i++)
+    {   putChar(hex[(start[i]>>4)]);
+        putChar(hex[(start[i]&0x0F)]);
     }
 }
