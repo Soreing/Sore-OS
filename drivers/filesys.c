@@ -3,6 +3,15 @@
 #include <drivers/filesys.h>
 #include <drivers/file.h>
 #include <drivers/iobuffers.h>
+#include <string.h>
+
+#define OFFSET_ATTRIB 0x0B
+#define OFFSET_CLUS_HI 0x14
+#define OFFSET_CLUS_LO 0x1A
+#define OFFSET_SIZE 0x1C
+#define FLAG_LFN 0x0F
+
+const char LFN_idxs[] = {1,3,5,7,9,14,16,18,20,22,24,28,30};
 
 struct FAT32_HEADER fileSys;
 
@@ -186,10 +195,116 @@ bool loadFileSystem()
         {   
             readHeader(&fileSys, buffer);
             if(openDirectory(fileSys.A_BF_BPB_RootDirStrtClus))
-            {   return true;
+            {   sysPath[0]= '/';
+                return true;
             }
         }
     }
 
     return false;
+}
+
+// Finds a file in the current directory by name
+// Returns the start cluster index of the file or -1 if not found
+int findFile(const char* filename, char *type)
+{
+    int clusterIndex    = 0;
+    int recordOffset    = 0;
+    int LongFileNameIdx = 0;
+    
+    char longName[105];
+    char shortName[12];
+    
+    memset(longName, 0, 105);
+    memset(shortName, 0, 12);
+
+    int cluster;
+
+    // Load first cluster to start traversal
+    if(dirClusterIndex != 0)
+    {   if(!load_Cluster(currentDir.clusters[0]))
+        {   return -1;
+        }
+    }
+
+    while(true)
+    {   // If there are no more records, break out of the loop
+        if(ClusterBuffer[recordOffset] == 0)
+        {   break;
+        }
+
+        // Logic for interpreting long file names
+        if((ClusterBuffer[recordOffset + OFFSET_ATTRIB] & FLAG_LFN) == FLAG_LFN)
+        {   // If it's the start of the LFN (4Xh), set LFN index
+            if((ClusterBuffer[recordOffset] & 0xF0) == 0x40)
+            {   LongFileNameIdx = ClusterBuffer[recordOffset] & 0x0F;
+            }
+
+            // Decrement the LFN Index if it matches the Index
+            // Exit with error if the LFN index is wrong
+            if((ClusterBuffer[recordOffset] & 0x0F) == LongFileNameIdx)
+            {   LongFileNameIdx--;
+            }
+            else
+            {   return -1;
+            }
+
+            int  bytePos;
+            char LFNChar;
+            //Read 13 characters into the entry name
+            for(int i=0; i<13; i++)
+            {   bytePos = recordOffset + LFN_idxs[i];
+                LFNChar = ClusterBuffer[bytePos+1] == 0x00 ? ClusterBuffer[bytePos] : 0;
+                longName[LongFileNameIdx*13+i] = LFNChar;
+            }
+        }
+        // If it's not a deleted record
+        else if(ClusterBuffer[recordOffset] != 0xE5)
+        {
+            // Copy the short name of the record to the buffer
+            memcpy(shortName, ClusterBuffer+recordOffset, 11);
+
+            // Check if the short name or the long name if valid, matches the search term
+            // If either name matches, find the cluster number, set the type and return
+            if(strcmp(shortName, filename) == 0 || (longName[0] != 0 && strcmp(longName, filename) == 0))
+            {   cluster  = (*(unsigned short*)(ClusterBuffer+(recordOffset + OFFSET_CLUS_HI))) << 16;
+                cluster |= (*(unsigned short*)(ClusterBuffer+(recordOffset + OFFSET_CLUS_LO)));
+                
+                *type = ClusterBuffer[recordOffset + OFFSET_ATTRIB] & 0x10 ? FTYPE_DIRECTORY : FTYPE_FILE;
+                return cluster;
+            }
+
+            memset(longName, 0, 105);
+        }
+
+        // Move to the next record
+        recordOffset += 32;
+
+        // If the offset reached the end of the cluster, fetch the next one
+        // If there are no more clusters, or the load fails, break out of the loop
+        if(recordOffset == fileSys.A_BF_BPB_SectorsPerCluster * fileSys.A_BF_BPB_BytesPerSector)
+        {   if(dirClusterIndex != 8 && currentDir.clusters[dirClusterIndex+1] != 0x0FFFFFFF)
+            {   if(load_Cluster(currentDir.clusters[dirClusterIndex+1]))
+                {   dirClusterIndex++;
+                    recordOffset += 0;
+                }
+                // Failed to load cluster
+                else
+                {   break;
+                }
+            }
+            // End of clusters
+            else
+            {   break;
+            }
+        }
+
+    }
+
+    return -1;
+}
+
+// Returns the system path
+char* getWorkingDirectory()
+{   return sysPath;
 }
