@@ -131,11 +131,13 @@ void scrollPageDown()
 void scrollPageBack()
 {
     int line = (globRow-24) < 0 ? 0 : (globRow-24);
-    lineShow = line;
-
-    int src = BACKUP_ADDRESS + line * 160;
-    int dst = VIDEO_ADDRESS;
-    memcpy((void*)dst, (void*)src, 25*160);
+    if(lineShow != line)
+    {   lineShow = line;
+    
+        int src = BACKUP_ADDRESS + line * 160;
+        int dst = VIDEO_ADDRESS;
+        memcpy((void*)dst, (void*)src, 25*160);
+    }
 }
 
 // Puts a character on the screen
@@ -148,9 +150,7 @@ void putChar(char ch)
     int globOffset = globRow*160 + column;
 
     // Scroll the page back to where the user was typing
-    if(lineShow != globRow-24)
-    {   scrollPageBack();
-    }
+    scrollPageBack();
 
     if(ch == '\n')
     {   scrollLineDown();
@@ -180,9 +180,8 @@ void delChar()
     int globOffset = globRow * 160 + column -2;
 
     // Scroll the page back to where the user was typing
-    if(lineShow != globRow-24)
-    {   scrollPageBack();
-    }
+    scrollPageBack();
+    
 
     if(dispOffset >= 0)
     {

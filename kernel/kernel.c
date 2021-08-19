@@ -4,6 +4,7 @@
 #include <drivers/screen.h>
 #include <drivers/iobuffers.h>
 #include <drivers/filesys.h>
+#include <drivers/file.h>
 #include <string.h>
 
 void changeDirCMD()
@@ -11,6 +12,27 @@ void changeDirCMD()
 	char directoryName[256];
 	getLine(directoryName, 256, '\n');
 	changeDirectory(directoryName);
+}
+
+void printFileCMD()
+{
+	char type;
+	int  cluster;
+	char fileName[256];
+
+	getLine(fileName, 256, '\n');
+	cluster = findFile(fileName, &type);
+
+	if(type == FTYPE_FILE)
+	{	struct File file;
+		getFile(cluster, &file);
+		printFile(file);
+		printChar('\n');
+	}
+	else
+	{	printStrZ(fileName);
+		printStrZ(": Is a directory\n");
+	}
 }
 
 
@@ -25,9 +47,9 @@ void main()
 	{
 		// Print working directory and $
 		setFontColor(COLOR_LIGHT_GREEN);
-		printStr(getWorkingDirectory());
+		printStrZ(getWorkingDirectory());
 		setFontColor(COLOR_WHITE);
-		printStr("$ ");
+		printStrZ("$ ");
 
 		// Get a command from the user
 		clearInputBuffer();
@@ -36,6 +58,9 @@ void main()
 		// Pick between valid commands
 		if(strcmp(buffer, "cd") == 0)
 		{	changeDirCMD();
+		}
+		else if(strcmp(buffer, "cat") == 0)
+		{	printFileCMD();
 		}
 		else if(strcmp(buffer, "ls") == 0)
 		{	listFiles();

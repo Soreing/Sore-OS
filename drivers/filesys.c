@@ -264,6 +264,22 @@ bool getShortName(const char* filename, char* buffer)
     return false;
 }
 
+// Gets a File object from a start cluster
+int getFile(const int startCluster, struct File* file)
+{
+    traverseFAT(startCluster, file->clusters);
+}
+
+// Prints the contents of the file on the screen
+void printFile(struct File file)
+{
+    dirClusterIndex = -1;
+    for(int i=0; i<8 && file.clusters[i] != 0x0FFFFFFF;i++)
+    {   load_Cluster(file.clusters[i]);
+        printStr(ClusterBuffer, 2048);
+    }
+}
+
 // Finds a file in the current directory by name
 // Returns the start cluster index of the file or -1 if not found
 int findFile(const char* filename, char *type)
@@ -435,7 +451,7 @@ void listFiles()
             else
             {   //Print either the long (if valid) or the short name
                 memcpy(shortName, ClusterBuffer+recordOffset, 11);
-                printStr(longName[0] == 0 ? shortName : longName);
+                printStrZ(longName[0] == 0 ? shortName : longName);
                 printChar('\n');
 
                 // Reset long name for the next file
@@ -506,10 +522,10 @@ void changeDirectory(char* dirName)
     }
 
     if(cluster == -1)
-    {   printStr("No such file or directory\n");
+    {   printStrZ("No such file or directory\n");
     }
     else if(type != FTYPE_DIRECTORY)
-    {   printStr("Not a directory\n");
+    {   printStrZ("Not a directory\n");
     }
     else
     {   if(openDirectory(cluster))

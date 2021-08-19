@@ -66,9 +66,16 @@ void getStr(char* buffer, int size)
 }
 
 // Prints a string to the screen unbuffered
-void printStr(char* buffer)
+void printStrZ(char* buffer)
 {
     for(int i=0; buffer[i] != 0; i++)
+    {   putChar(buffer[i]);
+    }
+}
+
+void printStr(char* buffer, int length)
+{
+    for(int i=0; i < length; i++)
     {   putChar(buffer[i]);
     }
 }
