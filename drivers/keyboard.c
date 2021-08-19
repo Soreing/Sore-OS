@@ -19,8 +19,8 @@ const char normCharset[] = {
 	'\'', '`', 0 ,'\\', 'z', 'x', 'c', 'v', 'b', 'n',
 	'm', ',', '.', '/',  0 , '*',  0 , ' ',  0 ,  0 ,
 	 0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,
-	 0 , '7', '8', '9', '-', '4', '5', '6', '+', '1',
-	'2', '3', '0', '.',  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,
+	 0 , '7', '8',  0 , '-', '4', '5', '6', '+', '1',
+	'2',  0 , '0', '.',  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,
 };
 
 // PS/2 Keyboard character set for shift key presses
@@ -32,8 +32,8 @@ const char shiftCharset[] = {
 	'\"', '~', 0 , '|', 'Z', 'X', 'C', 'V', 'B', 'N',
 	'M', '<', '>', '?',  0 , '*',  0 , ' ',  0 ,  0 ,
 	 0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,  0 ,
-	 0 , '7', '8', '9', '-', '4', '5', '6', '+', '1',
-	'2', '3', '0', '.',  0 ,  0 ,  0 ,  0 ,  0 ,  0
+	 0 , '7', '8',  0 , '-', '4', '5', '6', '+', '1',
+	'2',  0 , '0', '.',  0 ,  0 ,  0 ,  0 ,  0 ,  0
 };
 
 void keyboardHandler(void) 
@@ -81,6 +81,16 @@ void sysKey(char code, char state)
 			{	capsLock = !capsLock;
 			}
 			break;
+		case KEY_PAGEUP: 
+			if(state == KEY_DOWN)
+			{	scrollPageUp();
+			}
+			break;
+		case KEY_PAGEDOWN: 
+			if(state == KEY_DOWN)
+			{	scrollPageDown();
+			}
+			break;
 		case KEY_BACKSPACE:
 			if(state == KEY_DOWN)
 			{	if(tempIndex > 0)
@@ -100,7 +110,7 @@ void sysKey(char code, char state)
 				inputBuffer[inputIndex++]='\n';
 
 				tempIndex=0;
-				nextLine();
+				putChar('\n');
 			}
 			break;
 	}

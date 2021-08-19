@@ -12,6 +12,8 @@
 #define KEY_RSHIFT 0x36
 #define KEY_LALT 0x38
 #define KEY_CAPSLOCK 0x3A
+#define KEY_PAGEUP 0x49
+#define KEY_PAGEDOWN 0x51
 
 // IRQ_1 Keyboard Handler
 void keyboardHandler();

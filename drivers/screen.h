@@ -24,11 +24,15 @@ void setFontColor(unsigned char color);
 // Sets background font folor of the text
 void setBackgrounColor(unsigned char color);
 
-// Clears the screen
+// Resets the row and column counters to 0 
+// Clears the display page and the backup page
 void clearScreen();
 
-// Puts the caret on the next line on the screen
-void nextLine();
+// Scrolls 25 lines up in the history and displays it
+void scrollPageUp();
+
+// Scrolls 25 lines down in the history and displays it
+void scrollPageDown();
 
 // Puts a character on the screen
 void putChar(char ch);
