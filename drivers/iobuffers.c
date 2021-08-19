@@ -92,3 +92,8 @@ void printHex(unsigned char* start, int bytes)
         putChar(hex[(start[i]&0x0F)]);
     }
 }
+
+//Clears the Input Buffer
+void clearInputBuffer()
+{   inputIndex=0;
+}

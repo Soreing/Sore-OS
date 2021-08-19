@@ -14,8 +14,11 @@ extern char outputBuffer[2048];
 
 void getLine(char* buffer, int size, char delim);
 void getStr(char* buffer, int size);
+
 void printStr(char* buffer);
 void printChar(char ch);
 void printHex(unsigned char* start, int bytes);
+
+void clearInputBuffer();
 
 #endif

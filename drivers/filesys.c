@@ -16,10 +16,10 @@ const char LFN_idxs[] = {1,3,5,7,9,14,16,18,20,22,24,28,30};
 struct FAT32_HEADER fileSys;
 
 int  FATSecIdx=-1;
-int  FATBuffer[128];
+unsigned int  FATBuffer[128];
 
 int  ClusterSecIdx=-1;
-char ClusterBuffer[2048];
+unsigned char ClusterBuffer[2048];
 
 char sysPath[256];
   
@@ -91,21 +91,28 @@ bool readSector(short sectors, long LBA, char* buffer)
 
 	// READ SECTOR(S) - 20h
 	outb(0x1F7, 0x20);
-	status = inb(0x1F7);
 
-	// Poll the status while it's BSY, or till DRQ or ERR is set
-	while ((status & 0x80) != 0 || (status & 0x09) == 0)
-	{	status = inb(0x1F7);
-	}
+    // For S number of sectors
+    for(int s = 0; s < sectors; s++)
+    {   
+        // Poll the status while it's BSY, or till DRQ or ERR is set
+        status = inb(0x1F7);
+        while ((status & 0x80) != 0 || (status & 0x09) == 0)
+        {	status = inb(0x1F7);
+        }
 
-	// If ERR is not set, read the data
-	if((status & 0x01) == 0)
-	{	for(long i=0; i<512*sectors; i+=2)
-		{	*(short*)(buffer+i) = inw(0x1F0);
-		}
-		return true;
-	}
-	return false;
+        // If ERR is not set, read the data
+        if((status & 0x01) == 0)
+        {   for(long i = 0; i < 512; i += 2)
+            {*(short*)(buffer+i+s*512) = inw(0x1F0);
+            }
+        }
+        else
+        {   return false;
+        }
+    }
+
+    return true;
 }
 
 // Loads a new sector from the File Allocation Table into the memory
@@ -195,10 +202,63 @@ bool loadFileSystem()
         {   
             readHeader(&fileSys, buffer);
             if(openDirectory(fileSys.A_BF_BPB_RootDirStrtClus))
-            {   sysPath[0]= '/';
-                return true;
+            {   return true;
             }
         }
+    }
+
+    return false;
+}
+
+// If an applicable filename is given, creates a ShortFileName
+// The SFN is null terminated and needs 12 bytes of space
+bool getShortName(const char* filename, char* buffer)
+{
+    int len = strlen(filename);
+    
+    int  dotIdx   = 0;
+    int  dotCount = 0;
+    bool caseOk   = true;
+
+    for(int i=0; i<len; i++)
+    {
+        // Track the position and count of the dot
+        if(filename[i] == '.')
+        {   dotCount++;
+            dotIdx = i;
+        }
+        // Check if all the cases are uppercase
+        else if(filename[i] < 'A' || filename[i] > 'Z')
+        {   caseOk = false;
+        }
+    }
+
+    // Prepare the short file name buffer
+    memset(buffer, ' ', 11);
+    buffer[11] = 0;
+
+    // Special case for current directory "."
+    if(len == 1 && dotCount == 1)
+    {   buffer[0]='.';
+        return true;
+    }
+    // Special case for parent directory ".."
+    else if(len == 2 && dotCount == 2)
+    {   buffer[0]='.';
+        buffer[1]='.';
+        return true;
+    }
+    // If the filename is applicable without extension
+    else if(caseOk && dotCount == 0 && len <= 8 )
+    {   memcpy(buffer, filename, len);
+        return true;
+    }
+    // If the filename is applicable with extension
+    else if(caseOk && dotCount == 1 && dotIdx > 0 && dotIdx <= 9 && (len-dotIdx) <=3 )
+    {
+        memcpy(buffer, filename, dotIdx-1);
+        memcpy(buffer, filename + dotIdx + 1, (len-dotIdx));
+        return true;
     }
 
     return false;
@@ -208,17 +268,27 @@ bool loadFileSystem()
 // Returns the start cluster index of the file or -1 if not found
 int findFile(const char* filename, char *type)
 {
+    int cluster;
     int clusterIndex    = 0;
     int recordOffset    = 0;
     int LongFileNameIdx = 0;
     
+    // If the filename is larger than the max, throw error
+    if(strlen(filename) > 104)
+    {   return -1;
+    }
+
+    char name[105];
     char longName[105];
     char shortName[12];
     
     memset(longName, 0, 105);
     memset(shortName, 0, 12);
-
-    int cluster;
+    
+    // Get either the long name or the short name
+    if(!getShortName(filename, name))
+    {   strcpy(name, filename);
+    }
 
     // Load first cluster to start traversal
     if(dirClusterIndex != 0)
@@ -233,48 +303,51 @@ int findFile(const char* filename, char *type)
         {   break;
         }
 
-        // Logic for interpreting long file names
-        if((ClusterBuffer[recordOffset + OFFSET_ATTRIB] & FLAG_LFN) == FLAG_LFN)
-        {   // If it's the start of the LFN (4Xh), set LFN index
-            if((ClusterBuffer[recordOffset] & 0xF0) == 0x40)
-            {   LongFileNameIdx = ClusterBuffer[recordOffset] & 0x0F;
-            }
+        if( ClusterBuffer[recordOffset] != 0xE5)
+        {   
+            // Logic for interpreting long file names
+            if((ClusterBuffer[recordOffset + OFFSET_ATTRIB] & FLAG_LFN) == FLAG_LFN)
+            {   // If it's the start of the LFN (4Xh), set LFN index
+                if((ClusterBuffer[recordOffset] & 0xF0) == 0x40)
+                {   LongFileNameIdx = ClusterBuffer[recordOffset] & 0x0F;
+                }
 
-            // Decrement the LFN Index if it matches the Index
-            // Exit with error if the LFN index is wrong
-            if((ClusterBuffer[recordOffset] & 0x0F) == LongFileNameIdx)
-            {   LongFileNameIdx--;
+                // Decrement the LFN Index if it matches the Index
+                // Exit with error if the LFN index is wrong
+                if((ClusterBuffer[recordOffset] & 0x0F) == LongFileNameIdx)
+                {   LongFileNameIdx--;
+                }
+                else
+                {   return -1;
+                }
+
+                int  bytePos;
+                char LFNChar;
+                //Read 13 characters into the entry name
+                for(int i=0; i<13; i++)
+                {   bytePos = recordOffset + LFN_idxs[i];
+                    LFNChar = ClusterBuffer[bytePos+1] == 0x00 ? ClusterBuffer[bytePos] : 0;
+                    longName[LongFileNameIdx*13+i] = LFNChar;
+                }
             }
+            // Else if it's a normal file record
             else
-            {   return -1;
-            }
+            {   // Copy the short name of the record to the buffer
+                memcpy(shortName, ClusterBuffer+recordOffset, 11);
 
-            int  bytePos;
-            char LFNChar;
-            //Read 13 characters into the entry name
-            for(int i=0; i<13; i++)
-            {   bytePos = recordOffset + LFN_idxs[i];
-                LFNChar = ClusterBuffer[bytePos+1] == 0x00 ? ClusterBuffer[bytePos] : 0;
-                longName[LongFileNameIdx*13+i] = LFNChar;
-            }
-        }
-        // If it's not a deleted record
-        else if(ClusterBuffer[recordOffset] != 0xE5)
-        {
-            // Copy the short name of the record to the buffer
-            memcpy(shortName, ClusterBuffer+recordOffset, 11);
+                // Check if the short name or the long name if valid, matches the search term
+                // If either name matches, find the cluster number, set the type and return
+                if(strcmp(shortName, name) == 0 || (longName[0] != 0 && strcmp(longName, name) == 0))
+                {   cluster  = (*(unsigned short*)(ClusterBuffer+(recordOffset + OFFSET_CLUS_HI))) << 16;
+                    cluster |= (*(unsigned short*)(ClusterBuffer+(recordOffset + OFFSET_CLUS_LO)));
+                    
+                    *type = ClusterBuffer[recordOffset + OFFSET_ATTRIB] & 0x10 ? FTYPE_DIRECTORY : FTYPE_FILE;
+                    return cluster;
+                }
 
-            // Check if the short name or the long name if valid, matches the search term
-            // If either name matches, find the cluster number, set the type and return
-            if(strcmp(shortName, filename) == 0 || (longName[0] != 0 && strcmp(longName, filename) == 0))
-            {   cluster  = (*(unsigned short*)(ClusterBuffer+(recordOffset + OFFSET_CLUS_HI))) << 16;
-                cluster |= (*(unsigned short*)(ClusterBuffer+(recordOffset + OFFSET_CLUS_LO)));
-                
-                *type = ClusterBuffer[recordOffset + OFFSET_ATTRIB] & 0x10 ? FTYPE_DIRECTORY : FTYPE_FILE;
-                return cluster;
+                // Reset long name for the next file
+                memset(longName, 0, 105);
             }
-
-            memset(longName, 0, 105);
         }
 
         // Move to the next record
@@ -304,7 +377,148 @@ int findFile(const char* filename, char *type)
     return -1;
 }
 
+// Lists files in the current directory
+void listFiles()
+{
+    int clusterIndex    = 0;
+    int recordOffset    = 0;
+    int LongFileNameIdx = 0;
+
+    char longName[105];
+    char shortName[12];
+    
+    memset(longName, 0, 105);
+    memset(shortName, 0, 12);
+
+    // Load first cluster to start traversal
+    if(dirClusterIndex != 0)
+    {   if(!load_Cluster(currentDir.clusters[0]))
+        {   return;
+        }
+    }
+
+    while(true)
+    {   // If there are no more records, break out of the loop
+        if(ClusterBuffer[recordOffset] == 0)
+        {   break;
+        }
+
+        // If the record is not deleted
+        if(ClusterBuffer[recordOffset] != 0xE5)
+        {
+            // Logic for interpreting long file names
+            if((ClusterBuffer[recordOffset + OFFSET_ATTRIB] & FLAG_LFN) == FLAG_LFN)
+            {   // If it's the start of the LFN (4Xh), set LFN index
+                if((ClusterBuffer[recordOffset] & 0xF0) == 0x40)
+                {   LongFileNameIdx = ClusterBuffer[recordOffset] & 0x0F;
+                }
+
+                // Decrement the LFN Index if it matches the Index
+                // Exit with error if the LFN index is wrong
+                if((ClusterBuffer[recordOffset] & 0x0F) == LongFileNameIdx)
+                {   LongFileNameIdx--;
+                }
+                else
+                {   return;
+                }
+
+                int  bytePos;
+                char LFNChar;
+                //Read 13 characters into the entry name
+                for(int i=0; i<13; i++)
+                {   bytePos = recordOffset + LFN_idxs[i];
+                    LFNChar = ClusterBuffer[bytePos+1] == 0x00 ? ClusterBuffer[bytePos] : 0;
+                    longName[LongFileNameIdx*13+i] = LFNChar;
+                }
+            }
+            // Else if it's a normal file record
+            else
+            {   //Print either the long (if valid) or the short name
+                memcpy(shortName, ClusterBuffer+recordOffset, 11);
+                printStr(longName[0] == 0 ? shortName : longName);
+                printChar('\n');
+
+                // Reset long name for the next file
+                memset(longName, 0, 105);
+            }
+        }
+
+        // Move to the next record
+        recordOffset += 32;
+
+        // If the offset reached the end of the cluster, fetch the next one
+        // If there are no more clusters, or the load fails, break out of the loop
+        if(recordOffset == fileSys.A_BF_BPB_SectorsPerCluster * fileSys.A_BF_BPB_BytesPerSector)
+        {   if(dirClusterIndex != 8 && currentDir.clusters[dirClusterIndex+1] != 0x0FFFFFFF)
+            {   if(load_Cluster(currentDir.clusters[dirClusterIndex+1]))
+                {   dirClusterIndex++;
+                    recordOffset += 0;
+                }
+                // Failed to load cluster
+                else
+                {   break;
+                }
+            }
+            // End of clusters
+            else
+            {   break;
+            }
+        }
+
+    }
+}
+
 // Returns the system path
 char* getWorkingDirectory()
-{   return sysPath;
+{   return sysPath[0] == 0 ? "/" : sysPath;
+}
+
+// Adds a new directory name to the system path
+void addPath(char* name)
+{
+    int len = strlen(sysPath);
+    sysPath[len++] = '/';
+    strcpy(sysPath+len, name);
+}
+
+// Removes the last directory name from the system path
+void delPath()
+{
+    int i;
+    for(i=strlen(sysPath); sysPath[i] != '/'; i--)
+    {   sysPath[i]=0;
+    }
+
+    sysPath[i] = 0;
+}
+
+// Changes the current directory and adjusts the system path
+void changeDirectory(char* dirName)
+{
+    int  cluster;
+    char type;
+
+    cluster = findFile(dirName, &type);
+
+    // Adjustment for the root directory
+    if(cluster == 0)
+    {   cluster = fileSys.A_BF_BPB_RootDirStrtClus;
+    }
+
+    if(cluster == -1)
+    {   printStr("No such file or directory\n");
+    }
+    else if(type != FTYPE_DIRECTORY)
+    {   printStr("Not a directory\n");
+    }
+    else
+    {   if(openDirectory(cluster))
+        {   if(strcmp(dirName, "..") == 0)
+            {   delPath();
+            }
+            else if(strcmp(dirName, ".") != 0)
+            {   addPath(dirName);
+            }
+        }
+    }
 }
