@@ -4,8 +4,20 @@
 #define VIDEO_ADDRESS 0xB8000
 #define WHITE_ON_BLACK 0x0F
 
+unsigned char style = WHITE_ON_BLACK;
+
 int col = 0;
 int row = 0;
+
+// Sets foreground font folor of the text
+void setFontColor(unsigned char color)
+{   style = (style & 0xF0) | (color & 0x0F);
+}
+
+// Sets background font folor of the text
+void setBackgrounColor(unsigned char color)
+{   style = (style & 0x0F) | (color & 0xF0);
+}
 
 // Updates the cater's position
 void updateCursor()
@@ -49,9 +61,9 @@ void putChar(char ch)
     {   nextLine();
         return;
     }
-    
+
 	vidmem[offset]   = ch;
-	vidmem[offset+1] = WHITE_ON_BLACK;
+	vidmem[offset+1] = style;
 
     col+=2;
     if(col == 160)
@@ -70,7 +82,7 @@ void delChar()
 
     if(offset >= 0)
     {   vidmem[offset]   = 0;
-        vidmem[offset+1] = WHITE_ON_BLACK;
+        vidmem[offset+1] = style;
 
         col-=2;
         if(col < 0)

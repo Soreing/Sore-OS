@@ -13,10 +13,6 @@ void changeDirCMD()
 	changeDirectory(directoryName);
 }
 
-void listDirCMD()
-{
-	listFiles();
-}
 
 void main()
 {
@@ -27,17 +23,25 @@ void main()
 	char buffer[256];
 	while (true)
 	{
+		// Print working directory and $
+		setFontColor(COLOR_LIGHT_GREEN);
 		printStr(getWorkingDirectory());
-		printChar('$ ');
+		setFontColor(COLOR_WHITE);
+		printStr("$ ");
 
+		// Get a command from the user
 		clearInputBuffer();
 		getStr(buffer, 256);
 
+		// Pick between valid commands
 		if(strcmp(buffer, "cd") == 0)
 		{	changeDirCMD();
 		}
-		if(strcmp(buffer, "ls") == 0)
-		{	listDirCMD();
+		else if(strcmp(buffer, "ls") == 0)
+		{	listFiles();
+		}
+		else if(strcmp(buffer, "clear") == 0)
+		{	clearScreen();
 		}
 	}
 }
