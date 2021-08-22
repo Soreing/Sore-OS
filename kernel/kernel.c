@@ -7,31 +7,64 @@
 #include <drivers/file.h>
 #include <string.h>
 
+
+// Changes the current directory and adjusts the system path
 void changeDirCMD()
 {
+    struct File file;
 	char directoryName[256];
+
+	// Get Directory Name from the user
 	getLine(directoryName, 256, '\n');
-	changeDirectory(directoryName);
+
+	// Find if an entry exists with this name in the current directory
+    if(findFile(directoryName, &file) == 0)
+	{	// If the entry is of a directory type, change directory
+		if(file.type == FTYPE_DIRECTORY)
+		{	if(openDirectory(file))
+			{   // Adjust the system path with the directory change
+				if(strcmp(directoryName, "..") == 0)
+				{   delPath();
+				}
+				else if(strcmp(directoryName, ".") != 0)
+				{   addPath(directoryName);
+				}
+			}
+		}
+		else
+		{	printStrZ(directoryName);
+			printStrZ(": Not a directory\n");
+		}
+	}
+	else
+	{	printStrZ(directoryName);
+		printStrZ(": No such file or directory\n");	
+	}
 }
 
 void printFileCMD()
 {
-	char type;
-	int  cluster;
+	struct File file;
 	char fileName[256];
 
+	// Get File Name from the user
 	getLine(fileName, 256, '\n');
-	cluster = findFile(fileName, &type);
 
-	if(type == FTYPE_FILE)
-	{	struct File file;
-		getFile(cluster, &file);
-		printFile(file);
-		printChar('\n');
+	// Find if an entry exists with this name in the current directory
+	if(findFile(fileName, &file) == 0)
+	{	// If the entry is of a file type, print the file
+		if(file.type == FTYPE_FILE)
+		{	printFile(file);
+			printChar('\n');
+		}
+		else
+		{	printStrZ(fileName);
+			printStrZ(": Is a directory\n");
+		}
 	}
 	else
 	{	printStrZ(fileName);
-		printStrZ(": Is a directory\n");
+		printStrZ(": No such file or directory\n");
 	}
 }
 

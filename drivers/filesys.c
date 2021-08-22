@@ -178,13 +178,11 @@ bool traverseFAT(int startCluster, int clusters[8])
 
 // Replace the current directory's clusters with a new one
 // Reads the first cluster and sets the directory cluster index to 0
-bool openDirectory(int startCluster)
+bool openDirectory(struct File directory)
 {
-    if(traverseFAT(startCluster, currentDir.clusters))
-    {   if(load_Cluster(startCluster))
-        {   dirClusterIndex = 0;
-            return true;
-        }
+    if(load_Cluster(directory.clusters[0]))
+    {   dirClusterIndex = 0;
+        return true;
     }
 
     return false;
@@ -201,8 +199,11 @@ bool loadFileSystem()
         if(readSector(1, 1, buffer))
         {   
             readHeader(&fileSys, buffer);
-            if(openDirectory(fileSys.A_BF_BPB_RootDirStrtClus))
-            {   return true;
+            if(traverseFAT(fileSys.A_BF_BPB_RootDirStrtClus, currentDir.clusters))
+            {
+                if(openDirectory(currentDir))
+                {   return true;
+                }
             }
         }
     }
@@ -264,25 +265,22 @@ bool getShortName(const char* filename, char* buffer)
     return false;
 }
 
-// Gets a File object from a start cluster
-int getFile(const int startCluster, struct File* file)
-{
-    traverseFAT(startCluster, file->clusters);
-}
-
 // Prints the contents of the file on the screen
 void printFile(struct File file)
 {
+    int size = file.size;
+
     dirClusterIndex = -1;
     for(int i=0; i<8 && file.clusters[i] != 0x0FFFFFFF;i++)
     {   load_Cluster(file.clusters[i]);
-        printStr(ClusterBuffer, 2048);
+        printStr(ClusterBuffer, size > 2048 ? 2048 : size);
+        size -= 2048;
     }
 }
 
-// Finds a file in the current directory by name
-// Returns the start cluster index of the file or -1 if not found
-int findFile(const char* filename, char *type)
+// Finds a file in the current directory by name and fills the file structure
+// Returns 0 on success, -1 on error
+int findFile(const char* filename, struct File* file)
 {
     int cluster;
     int clusterIndex    = 0;
@@ -357,8 +355,15 @@ int findFile(const char* filename, char *type)
                 {   cluster  = (*(unsigned short*)(ClusterBuffer+(recordOffset + OFFSET_CLUS_HI))) << 16;
                     cluster |= (*(unsigned short*)(ClusterBuffer+(recordOffset + OFFSET_CLUS_LO)));
                     
-                    *type = ClusterBuffer[recordOffset + OFFSET_ATTRIB] & 0x10 ? FTYPE_DIRECTORY : FTYPE_FILE;
-                    return cluster;
+                    // Adjust root cluster
+                    if(cluster == 0)
+                    {   cluster = fileSys.A_BF_BPB_RootDirStrtClus;
+                    }
+
+                    file->type = ClusterBuffer[recordOffset + OFFSET_ATTRIB] & 0x10 ? FTYPE_DIRECTORY : FTYPE_FILE;
+                    file->size = *(int*)(ClusterBuffer + recordOffset + OFFSET_SIZE);
+                    traverseFAT(cluster, file->clusters);
+                    return 0;
                 }
 
                 // Reset long name for the next file
@@ -506,35 +511,4 @@ void delPath()
     }
 
     sysPath[i] = 0;
-}
-
-// Changes the current directory and adjusts the system path
-void changeDirectory(char* dirName)
-{
-    int  cluster;
-    char type;
-
-    cluster = findFile(dirName, &type);
-
-    // Adjustment for the root directory
-    if(cluster == 0)
-    {   cluster = fileSys.A_BF_BPB_RootDirStrtClus;
-    }
-
-    if(cluster == -1)
-    {   printStrZ("No such file or directory\n");
-    }
-    else if(type != FTYPE_DIRECTORY)
-    {   printStrZ("Not a directory\n");
-    }
-    else
-    {   if(openDirectory(cluster))
-        {   if(strcmp(dirName, "..") == 0)
-            {   delPath();
-            }
-            else if(strcmp(dirName, ".") != 0)
-            {   addPath(dirName);
-            }
-        }
-    }
 }

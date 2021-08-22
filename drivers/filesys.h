@@ -11,12 +11,9 @@
 // by traversing its cluster indexes and loading the first cluster
 bool loadFileSystem();
 
-// Finds a file in the current directory by name
-// Returns the start cluster index of the file or -1 if not found
-int findFile(const char* filename, char *type);
-
-// Gets a File object from a start cluster
-int getFile(const int startCluster, struct File* file);
+// Finds a file in the current directory by name and fills the file structure
+// Returns 0 on success, -1 on error
+int findFile(const char* filename, struct File *type);
 
 // Prints the contents of the file on the screen
 void printFile(struct File file);
@@ -27,7 +24,14 @@ void listFiles();
 // Returns the system path
 char* getWorkingDirectory();
 
-// Changes the current directory and adjusts the system path
-void changeDirectory(char* dirName);
+// Replace the current directory's clusters with a new one
+// Reads the first cluster and sets the directory cluster index to 0
+bool openDirectory(struct File directory);
+
+// Adds a new directory name to the system path
+void addPath(char* name);
+
+// Removes the last directory name from the system path
+void delPath();
 
 #endif
