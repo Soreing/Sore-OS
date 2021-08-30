@@ -5,7 +5,7 @@
 Sore-OS is a primitive x86 architecture 32-bit Operating System with a FAT32 File System and a basic kernel capable of keyboard input and VGA output. The OS has a custom boot loader written in AT&T syntax.  
   
 
-This project was started, motivated and influenced by ["Writing a Simple Operating System — from Scratch"](http://google.com) by Nick Blundell, then expanded on with the help of [OSDev Wiki](https://wiki.osdev.org/Main_Page)  
+This project was started, motivated and influenced by ["Writing a Simple Operating System — from Scratch"](https://www.cs.bham.ac.uk/~exr/lectures/opsys/10_11/lectures/os-dev.pdf) by Nick Blundell, then expanded on with the help of [OSDev Wiki](https://wiki.osdev.org/Main_Page)  
 
 # Basic Design 
 The Operating System boots into 16-bit Real mode, then with the help of the BIOS, it identifies the partition on the MBR sector, then finds KERNEL.SYS in the root directory of the FAT32 file system before changing into 32-bit Protected mode by configuring the Global Descriptor Table (GDT). 
